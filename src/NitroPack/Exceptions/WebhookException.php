@@ -1,6 +1,6 @@
 <?php
 
-namespace NitroPack;
+namespace NitroPack\Exceptions;
 
 class WebhookException extends \Exception
 {

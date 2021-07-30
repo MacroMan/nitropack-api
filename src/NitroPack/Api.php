@@ -2,16 +2,28 @@
 
 namespace NitroPack;
 
+use NitroPack\Api\Response;
 use NitroPack\Exceptions\VariationCookieException;
+use NitroPack\Exceptions\WebhookException;
 use \NitroPack\Website as Website;
+use stdClass;
 
+/**
+ * Class Api
+ */
 class Api {
     private $cache;
     private $tagger;
     private $url;
     private $allowedWebhooks = array('config', 'cache_clear', 'cache_ready', 'sitemap');
 
-    public function __construct($siteId, $siteSecret) {
+    /**
+     * Constructor
+     *
+     * @param string $siteId
+     * @param string $siteSecret
+     */
+    public function __construct(string $siteId, string $siteSecret) {
         $this->cache = new Api\Cache($siteId, $siteSecret);
         $this->tagger = new Api\Tagger($siteId, $siteSecret);
         $this->url = new Api\Url($siteId, $siteSecret);
@@ -22,41 +34,109 @@ class Api {
         $this->variation_cookie = new Api\VariationCookie($siteId, $siteSecret);
     }
 
-    public function getCache($url, $userAgent, $cookies, $isAjax, $layout) {
+    /**
+     * @param string $url
+     * @param string $userAgent
+     * @param array $cookies
+     * @param bool $isAjax
+     * @param string $layout
+     *
+     * @return \NitroPack\Api\Response
+     */
+    public function getCache(string $url, string $userAgent, array $cookies, bool $isAjax, string $layout): Response
+    {
         return $this->cache->get($url, $userAgent, $cookies, $isAjax, $layout);
     }
 
-    public function getLastCachePurge() {
+    /**
+     * @return array
+     */
+    public function getLastCachePurge(): array
+    {
         return $this->cache->getLastPurge();
     }
 
-    public function purgeCache($url = NULL, $pagecacheOnly = false, $reason = NULL) {
+    /**
+     * @param string|null $url
+     * @param bool $pagecacheOnly
+     * @param string|null $reason
+     *
+     * @return bool
+     */
+    public function purgeCache(?string $url = NULL, bool $pagecacheOnly = false, ?string $reason = NULL): bool
+    {
         return $this->cache->purge($url, $pagecacheOnly, $reason);
     }
 
-    public function purgeCacheByTag($tag, $reason = NULL) {
+    /**
+     * @param string $tag
+     * @param string|null $reason
+     *
+     * @return array
+     */
+    public function purgeCacheByTag(string $tag, ?string $reason = NULL): array
+    {
         return $this->cache->purgeByTag($tag, $reason);
     }
 
-    public function getUrls($page = 1, $limit = 250, $search = NULL, $deviceType = NULL, $status = NULL) {
+    /**
+     * @param int $page
+     * @param int $limit
+     * @param string|null $search
+     * @param string|null $deviceType
+     * @param int|null $status
+     *
+     * @return array
+     */
+    public function getUrls(int $page = 1, int $limit = 250, ?string $search = NULL, ?string $deviceType = NULL, ?int $status = NULL): array
+    {
         return $this->url->get($page, $limit, $search, $deviceType, $status);
     }
 
-    public function getUrlsCount($search = NULL, $deviceType = NULL, $status = NULL) {
+    /**
+     * @param string|null $search
+     * @param string|null $deviceType
+     * @param int|null $status
+     *
+     * @return int
+     */
+    public function getUrlsCount(?string $search = NULL, ?string $deviceType = NULL, ?int $status = NULL): int
+    {
         $resp = $this->url->count($search, $deviceType, $status);
         return (int)$resp["count"];
     }
 
-    public function getPendingUrls($page = 1, $limit = 250, $priority = NULL) {
+    /**
+     * @param int $page
+     * @param int $limit
+     * @param int|null $priority
+     *
+     * @return array
+     */
+    public function getPendingUrls(int $page = 1, int $limit = 250, int $priority = NULL): array
+    {
         return $this->url->getpending($page, $limit, $priority);
     }
 
-    public function getPendingUrlsCount($priority = NULL) {
+    /**
+     * @param int|null $priority
+     *
+     * @return int
+     */
+    public function getPendingUrlsCount(int $priority = NULL): int
+    {
         $resp = $this->url->pendingCount($priority);
         return (int)$resp["count"];
     }
 
-    public function tagUrl($url, $tag) {
+    /**
+     * @param string $url
+     * @param string $tag
+     *
+     * @return bool
+     */
+    public function tagUrl(string $url, string $tag): bool
+    {
         $resp = @json_decode($this->tagger->tag($url, $tag)->getBody());
         if ($resp && !$resp->success) {
             $msg = $resp->error ? $resp->error : "Unable to tag URL";
@@ -66,69 +146,150 @@ class Api {
         return true;
     }
 
-    public function untagUrl($url, $tag) {
+    /**
+     * @param string $url
+     * @param string $tag
+     *
+     * @return mixed
+     */
+    public function untagUrl(string $url, string $tag) {
         $resp = json_decode($this->tagger->remove($url, $tag)->getBody(), true);
         return $resp['removed'];
     }
 
-    public function getTaggedUrls($tag, $page = 1, $limit = 250) {
+    /**
+     * @param string $tag
+     * @param int $page
+     * @param int $limit
+     *
+     * @return array
+     */
+    public function getTaggedUrls(string $tag, int $page = 1, int $limit = 250): array
+    {
         return $this->tagger->getUrls($tag, $page, $limit);
     }
 
-    public function getTaggedUrlsCount($tag) {
+    /**
+     * @param string $tag
+     *
+     * @return int
+     */
+    public function getTaggedUrlsCount(string $tag): int
+    {
         $resp = $this->tagger->getUrlsCount($tag);
         return (int)$resp["count"];
     }
 
-    public function getTags($url = NULL, $page = 1, $limit = 250) {
+    /**
+     * @param string|null $url
+     * @param int $page
+     * @param int $limit
+     *
+     * @return array
+     */
+    public function getTags(string $url = NULL, int $page = 1, int $limit = 250): array
+    {
         return $this->tagger->getTags($url, $page, $limit);
     }
 
-    public function getSavings() {
+    /**
+     * @return array
+     */
+    public function getSavings(): array
+    {
         return $this->stats->getSavings();
     }
 
-    public function getDiskUsage() {
+    /**
+     * @return array
+     */
+    public function getDiskUsage(): array
+    {
         return $this->stats->getDiskUsage();
     }
 
-    public function getRequestUsage() {
+    /**
+     * @return array
+     */
+    public function getRequestUsage(): array
+    {
         return $this->stats->getRequestUsage();
     }
 
-    public function resetSavingsStats() {
+    /**
+     * @return bool
+     */
+    public function resetSavingsStats(): bool
+    {
         return $this->stats->resetSavings();
     }
 
-    public function enableWarmup() {
+    /**
+     * @return bool
+     */
+    public function enableWarmup(): bool
+    {
         return $this->warmup->enable();
     }
 
-    public function disableWarmup() {
+    /**
+     * @return bool
+     */
+    public function disableWarmup(): bool
+    {
         return $this->warmup->disable();
     }
 
-    public function resetWarmup() {
+    /**
+     * @return bool
+     */
+    public function resetWarmup(): bool {
         return $this->warmup->reset();
     }
 
-    public function setWarmupSitemap($url) {
+    /**
+     * @param string $url
+     *
+     * @return bool
+     */
+    public function setWarmupSitemap(string $url): bool
+    {
         return $this->warmup->setSitemap($url);
     }
 
-    public function unsetWarmupSitemap() {
+    /**
+     * @return bool
+     */
+    public function unsetWarmupSitemap(): bool {
         return $this->warmup->setSitemap(NULL);
     }
 
-    public function setWarmupHomepage($url) {
+    /**
+     * @param string $url
+     *
+     * @return bool
+     */
+    public function setWarmupHomepage(string $url): bool
+    {
         return $this->warmup->setHomepage($url);
     }
 
-    public function unsetWarmupHomepage() {
+    /**
+     * @return bool
+     */
+    public function unsetWarmupHomepage(): bool
+    {
         return $this->warmup->setHomepage(NULL);
     }
 
-    public function estimateWarmup($id = NULL, $urls = NULL) {
+    /**
+     * @param string|null $id
+     * @param string|null $urls
+     *
+     * @return int|string
+     */
+    public function estimateWarmup(?string $id = NULL, ?string $urls = NULL)
+    {
         $resp = $this->warmup->estimate($id, $urls);
         if ($id) {
             return (int)$resp["count"];
@@ -137,15 +298,33 @@ class Api {
         }
     }
 
-    public function runWarmup($urls = NULL, $force = false) {
+    /**
+     * @param array|null $urls
+     * @param bool $force
+     *
+     * @return bool
+     */
+    public function runWarmup(?array $urls = NULL, bool $force = false): bool
+    {
         return $this->warmup->run($urls, $force);
     }
 
-    public function getWarmupStats() {
+    /**
+     * @return array
+     */
+    public function getWarmupStats(): array
+    {
         return $this->warmup->stats();
     }
 
-    public function unsetWebhook($type) {
+    /**
+     * @param string $type
+     *
+     * @return void
+     * @throws \NitroPack\Exceptions\WebhookException
+     */
+    public function unsetWebhook(string $type): void
+    {
         if (!in_array($type, $this->allowedWebhooks)) {
             throw new WebhookException("The webhook type '$type' is not supported!");
         }
@@ -157,7 +336,14 @@ class Api {
         }
     }
 
-    public function setWebhook($type, Url\Url $url) {
+    /**
+     * @param string $type
+     * @param \NitroPack\Url\Url $url
+     *
+     * @throws \NitroPack\Exceptions\WebhookException
+     */
+    public function setWebhook(string $type, Url\Url $url): void
+    {
         if (!in_array($type, $this->allowedWebhooks)) {
             throw new WebhookException("The webhook type '$type' is not supported!");
         }
@@ -173,7 +359,13 @@ class Api {
         }
     }
 
-    public function getWebhook($type) {
+    /**
+     * @param string $type
+     *
+     * @return string
+     * @throws \NitroPack\Exceptions\WebhookException
+     */
+    public function getWebhook(string $type): string {
         if (!in_array($type, $this->allowedWebhooks)) {
             throw new WebhookException("The webhook type '$type' is not supported!");
         }
@@ -186,7 +378,16 @@ class Api {
         }
     }
 
-    public function setVariationCookie($name, $values = array(), $group = null) {
+    /**
+     * @param string $name
+     * @param array $values
+     * @param String|null $group
+     *
+     * @return bool
+     * @throws \NitroPack\Exceptions\VariationCookieException
+     */
+    public function setVariationCookie(string $name, array $values = array(), ?String $group = null): bool
+    {
         if (!is_array($values) && !is_string($values)) {
             throw new VariationCookieException("The provided values is not an array or a string.");
         } else if (is_array($values)) {
@@ -212,7 +413,13 @@ class Api {
         }
     }
 
-    public function unsetVariationCookie($name) {
+    /**
+     * @param string $name
+     *
+     * @return bool
+     * @throws \NitroPack\Exceptions\VariationCookieException
+     */
+    public function unsetVariationCookie(string $name): bool {
         if (!is_string($name) || trim($name) == "") {
             throw new VariationCookieException("The provided cookie name is not a string or is empty.");
         }
@@ -224,7 +431,12 @@ class Api {
         }
     }
 
-    public function getVariationCookies() {
+    /**
+     * @return array
+     * @throws \NitroPack\Exceptions\VariationCookieException
+     */
+    public function getVariationCookies(): array
+    {
         try {
             return $this->variation_cookie->get();
         } catch (\RuntimeException $e) {
@@ -232,25 +444,58 @@ class Api {
         }
     }
 
-    public function createWebsite(Website $website) {
+    /**
+     * @param \NitroPack\Website $website
+     *
+     * @return \NitroPack\Website
+     * @throws \Exception
+     */
+    public function createWebsite(Website $website): Website {
         return $this->integration->create($website);
     }
 
-    public function updateWebsite(Website $website) {
+    /**
+     * @param \NitroPack\Website $website
+     *
+     * @return \NitroPack\Website
+     */
+    public function updateWebsite(Website $website): Website {
         return $this->integration->update($website);
     }
 
-    public function removeWebsite($apikey) {
+    /**
+     * @param string $apikey
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    public function removeWebsite(string $apikey): bool
+    {
         return $this->integration->remove($apikey);
     }
 
-    // Get a single website via API key
-    public function getWebsiteByAPIKey($apikey) {
+    /**
+     * Get a single website via API key
+     *
+     * @param string $apikey
+     *
+     * @return \NitroPack\Website
+     * @throws \Exception
+     */
+    public function getWebsiteByAPIKey(string $apikey): Website {
         return $this->integration->readByAPIKey($apikey);
     }
 
-    // Get all websites, along with a corresponding pagination
-    public function getWebsitesPaginated($page, $limit = 250) {
+    /**
+     * Get all websites, along with a corresponding pagination
+     *
+     * @param int $page
+     * @param int $limit
+     *
+     * @return \stdClass
+     * @throws \Exception
+     */
+    public function getWebsitesPaginated(int $page, int $limit = 250): stdClass {
         return $this->integration->readPaginated($page, $limit);
     }
 }

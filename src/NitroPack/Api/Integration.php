@@ -4,6 +4,7 @@ namespace NitroPack\Api;
 use \NitroPack\IntegrationUrl;
 use \NitroPack\Website;
 use \NitroPack\Crypto;
+use stdClass;
 
 class Integration extends Base {
     private $siteSecret;
@@ -20,7 +21,7 @@ class Integration extends Base {
      * Generates a private/public key pair. This is a slow operation! Run it no more than once only whenever needed!
      * @return stdClass Pair of private and public keys
      */
-    protected function keysInstance() {
+    protected function keysInstance(): stdClass {
         // This must be executed only once per request.
         if (empty($this->keys)) {
             $this->keys = Crypto::generateKeyPair();
@@ -29,7 +30,15 @@ class Integration extends Base {
         return $this->keys;
     }
 
-    protected function websiteFromStruct($data, $errorTemplate, $privateKey) {
+    /**
+     * @param $data
+     * @param $errorTemplate
+     * @param $privateKey
+     *
+     * @return \NitroPack\Website
+     */
+    protected function websiteFromStruct($data, $errorTemplate, $privateKey): Website
+    {
         $site = new Website;
 
         $json = Crypto::decrypt($data->credentials, $privateKey);
@@ -54,7 +63,14 @@ class Integration extends Base {
         return $site;
     }
 
-    public function create(Website $website) {
+    /**
+     * @param \NitroPack\Website $website
+     *
+     * @return \NitroPack\Website
+     * @throws \Exception
+     */
+    public function create(Website $website): Website
+    {
         // Prepare keys
         $keys = $this->keysInstance();
 
@@ -147,7 +163,14 @@ class Integration extends Base {
         }
     }
 
-    public function remove($apikey) {
+    /**
+     * @param string $apikey
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    public function remove(string $apikey): bool
+    {
         // Provide target site_id
         $additional_params = array(
             'target_site_id' => $apikey
@@ -182,7 +205,13 @@ class Integration extends Base {
         }
     }
 
-    public function readByAPIKey($apikey) {
+    /**
+     * @param string $apikey
+     *
+     * @return \NitroPack\Website
+     * @throws \Exception
+     */
+    public function readByAPIKey(string $apikey): Website {
         // Prepare keys
         $keys = $this->keysInstance();
 
@@ -225,7 +254,14 @@ class Integration extends Base {
         }
     }
 
-    public function readPaginated($page, $limit = 250) {
+    /**
+     * @param int $page
+     * @param int $limit
+     *
+     * @return \stdClass
+     * @throws \Exception
+     */
+    public function readPaginated(int $page, int $limit = 250): stdClass {
         // Prepare keys
         $keys = $this->keysInstance();
 

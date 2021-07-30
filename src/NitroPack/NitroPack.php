@@ -3,7 +3,13 @@ namespace NitroPack;
 
 use NitroPack\Exceptions\EmptyConfigException;
 use NitroPack\Exceptions\NoConfigException;
+use NitroPack\Exceptions\StorageException;
 
+/**
+ * Class NitroPack
+ *
+ * @todo MacroMan - Figure out all the properties and document
+ */
 class NitroPack {
     const VERSION = '0.19.2';
     const PAGECACHE_LOCK_EXPIRATION_TIME = 300; // in seconds
@@ -27,62 +33,19 @@ class NitroPack {
     private static $cachePrefixes = array();
     private static $cookieFilters = array();
 
-    public static function getRemoteAddr() {
-        // IP check order is: CloudFlare, Proxy, Client IP
-        $ipKeys = ["HTTP_X_FORWARDED_FOR", "HTTP_CF_CONNECTING_IP", "REMOTE_ADDR"];
-        foreach ($ipKeys as $key) {
-            if (!empty($_SERVER[$key])) {
-                return $_SERVER[$key];
-            }
-        }
-
-        return NULL;
-    }
-
-    public static function getCookies() {
-        $cookies = array();
-
-        foreach ($_COOKIE as $name=>$value) {
-            if (is_array($value)) {
-                foreach ($value as $k=>$v) {
-                    $key = $name . "[$k]";
-                    $cookies[$key] = $v;
-                }
-            } else {
-                $cookies[$name] = $value;
-            }
-        }
-
-        foreach (self::$cookieFilters as $cookieFilter) {
-            call_user_func_array($cookieFilter, array(&$cookies));
-        }
-
-        return $cookies;
-    }
-
-    public static function addCookieFilter($callback) {
-        if (is_callable($callback)) {
-            if (!in_array($callback, self::$cookieFilters, true)) {
-                self::$cookieFilters[] = $callback;
-            }
-        } else {
-            throw new \RuntimeException("Non-callable callback passed to " . __FUNCTION__);
-        }
-    }
-
-    public static function addCustomCachePrefix($prefix = "") {
-        self::$cachePrefixes[] = $prefix;
-    }
-
-    public static function getCustomCachePrefix() {
-        return implode("-", self::$cachePrefixes);
-    }
-
-    public static function wildcardToRegex($str, $delim = "/") {
-        return implode(".*?", array_map(function($input) use ($delim) { return preg_quote($input, $delim); }, explode("*", $str)));
-    }
-
-    public function __construct($siteId, $siteSecret, $userAgent = NULL, $url = NULL, $dataDir = __DIR__) {
+    /**
+     * Constructor
+     *
+     * @param string $siteId
+     * @param string $siteSecret
+     * @param string|null $userAgent
+     * @param String|null $url
+     * @param string $dataDir
+     *
+     * @throws \NitroPack\Exceptions\NoConfigException
+     */
+    public function __construct(string $siteId, string $siteSecret, ?string $userAgent = null, ?String $url = null, string $dataDir = __DIR__)
+    {
         $this->configTTL = 3600;
         $this->siteId = $siteId;
         $this->siteSecret = $siteSecret;
@@ -96,7 +59,7 @@ class NitroPack {
         $this->loadConfig($siteId, $siteSecret);
         $this->device = new Device($this->userAgent);
 
-        if(empty($url)) {
+        if (empty($url)) {
             $host = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : "example.com";
             $uri = !empty($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : "/";
             $url = $this->getScheme() . $host . $uri;
@@ -111,7 +74,7 @@ class NitroPack {
                 if ($this->config->IgnoredParams) {
                     foreach ($this->config->IgnoredParams as $ignorePattern) {
                         $regex = "/^" . self::wildcardToRegex($ignorePattern) . "$/";
-                        foreach($queryParams as $paramName => $paramValue) {
+                        foreach ($queryParams as $paramName => $paramValue) {
                             if (preg_match($regex, $paramName)) {
                                 unset($queryParams[$paramName]);
                             }
@@ -140,7 +103,95 @@ class NitroPack {
         $this->useCompression = false;
     }
 
-    public function supportedCookiesFilter($cookies) {
+    /**
+     * @return string|null
+     */
+    public static function getRemoteAddr(): ?string
+    {
+        // IP check order is: CloudFlare, Proxy, Client IP
+        $ipKeys = ["HTTP_X_FORWARDED_FOR", "HTTP_CF_CONNECTING_IP", "REMOTE_ADDR"];
+        foreach ($ipKeys as $key) {
+            if (!empty($_SERVER[$key])) {
+                return $_SERVER[$key];
+            }
+        }
+
+        return NULL;
+    }
+
+    /**
+     * @return array
+     */
+    public static function getCookies(): array
+    {
+        $cookies = [];
+
+        foreach ($_COOKIE as $name=>$value) {
+            if (is_array($value)) {
+                foreach ($value as $k=>$v) {
+                    $key = $name . "[$k]";
+                    $cookies[$key] = $v;
+                }
+            } else {
+                $cookies[$name] = $value;
+            }
+        }
+
+        foreach (self::$cookieFilters as $cookieFilter) {
+            call_user_func_array($cookieFilter, array(&$cookies));
+        }
+
+        return $cookies;
+    }
+
+    /**
+     * @param callable|null $callback
+     */
+    public static function addCookieFilter(?callable $callback): void
+    {
+        if (is_callable($callback)) {
+            if (!in_array($callback, self::$cookieFilters, true)) {
+                self::$cookieFilters[] = $callback;
+            }
+        } else {
+            throw new \RuntimeException("Non-callable callback passed to " . __FUNCTION__);
+        }
+    }
+
+    /**
+     * @param string $prefix
+     */
+    public static function addCustomCachePrefix(string $prefix = ""): void
+    {
+        self::$cachePrefixes[] = $prefix;
+    }
+
+    /**
+     * @return string
+     */
+    public static function getCustomCachePrefix(): string
+    {
+        return implode("-", self::$cachePrefixes);
+    }
+
+    /**
+     * @param string $str
+     * @param string $delim
+     *
+     * @return string
+     */
+    public static function wildcardToRegex(string $str, string $delim = "/"): string
+    {
+        return implode(".*?", array_map(function($input) use ($delim) { return preg_quote($input, $delim); }, explode("*", $str)));
+    }
+
+    /**
+     * @param array $cookies
+     *
+     * @return array
+     */
+    public function supportedCookiesFilter(array $cookies): array
+    {
         $supportedCookies = array();
         foreach ($cookies as $cookieName=>$cookieValue) {
             foreach ($this->config->PageCache->SupportedCookies as $cookie) {
@@ -152,7 +203,14 @@ class NitroPack {
         return $supportedCookies;
     }
 
-    public function tagUrl($url, $tag) {
+    /**
+     * @param string $url
+     * @param string $tag
+     *
+     * @return bool
+     */
+    public function tagUrl(string $url, string $tag): bool
+    {
         if ($this->isAllowedUrl($url)) {
             return $this->api->tagUrl($url, $tag);
         } else {
@@ -160,36 +218,68 @@ class NitroPack {
         }
     }
 
-    public function setCachePathSuffix($suffix) {
+    /**
+     * @param string $suffix
+     */
+    public function setCachePathSuffix(string $suffix): void
+    {
         $this->cachePathSuffix = $suffix;
         $this->pageCache->setDataDir($this->getCacheDir());
     }
 
-    public function enableCompression() {
+    /**
+     *
+     */
+    public function enableCompression(): void
+    {
         $this->pageCache->enableCompression();
     }
 
-    public function disableCompression() {
+    /**
+     *
+     */
+    public function disableCompression(): void
+    {
         $this->pageCache->disableCompression();
     }
 
-    public function getUrl() {
+    /**
+     * @return string
+     */
+    public function getUrl(): string
+    {
         return $this->url;
     }
 
-    public function getApi() {
+    /**
+     * @return \NitroPack\Api
+     */
+    public function getApi(): Api
+    {
         return $this->api;
     }
 
-    public function getSiteId() {
+    /**
+     * @return string
+     */
+    public function getSiteId(): string
+    {
         return $this->siteId;
     }
 
-    public function getConfig() {
+    /**
+     * @return array
+     */
+    public function getConfig(): array
+    {
         return $this->config;
     }
 
-    public function getCacheDir() {
+    /**
+     * @return string
+     */
+    public function getCacheDir(): string
+    {
         $cachePath = $this->cachePath;
         array_unshift($cachePath, $this->dataDir);
         if ($this->cachePathSuffix) {
@@ -198,7 +288,13 @@ class NitroPack {
         return Filesystem::getOsPath($cachePath);
     }
 
-    public function hasCache($layout = 'default') {
+    /**
+     * @param string $layout
+     *
+     * @return bool
+     */
+    public function hasCache(string $layout = 'default'): bool
+    {
         if ($this->hasLocalCache()) {
             return true;
         } else {
@@ -206,7 +302,13 @@ class NitroPack {
         }
     }
 
-    public function hasLocalCache($checkIfRequestIsAllowed = true) {
+    /**
+     * @param bool $checkIfRequestIsAllowed
+     *
+     * @return bool
+     */
+    public function hasLocalCache(bool $checkIfRequestIsAllowed = true): bool
+    {
         if (!$this->isAllowedUrl($this->url) || ($checkIfRequestIsAllowed && !$this->isAllowedRequest())) return false;
         $cacheRevision = !empty($this->config->RevisionHash) ? $this->config->RevisionHash : NULL;
 
@@ -219,7 +321,14 @@ class NitroPack {
         return $this->pageCache->hasCache() && !$this->pageCache->hasExpired($ttl, $cacheRevision);
     }
 
-    public function hasRemoteCache($layout, $checkIfRequestIsAllowed = true) {
+    /**
+     * @param string $layout
+     * @param bool $checkIfRequestIsAllowed
+     *
+     * @return bool
+     */
+    public function hasRemoteCache(string $layout, bool $checkIfRequestIsAllowed = true): bool
+    {
         if (!$this->isAllowedUrl($this->url) || ($checkIfRequestIsAllowed && !$this->isAllowedRequest()) || $this->isPageCacheLocked()) return false;
         $resp = $this->api->getCache($this->url, $this->userAgent, $this->supportedCookiesFilter(self::getCookies()), $this->isAJAXRequest(), $layout);
 
@@ -260,15 +369,41 @@ class NitroPack {
         }
     }
 
-    public function invalidateCache($url = NULL, $tag = NULL, $reason = NULL) {
+    /**
+     * @param string|null $url
+     * @param String|null $tag
+     * @param String|null $reason
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    public function invalidateCache(?string $url = NULL, ?String $tag = NULL, ?String $reason = NULL): bool
+    {
         return $this->purgeCache($url, $tag, PurgeType::INVALIDATE | PurgeType::PAGECACHE_ONLY, $reason);
     }
 
-    public function clearPageCache($reason = NULL) {
+    /**
+     * @param string|null $reason
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    public function clearPageCache(?string $reason = NULL): bool
+    {
         return $this->purgeCache(NULL, NULL, PurgeType::PAGECACHE_ONLY, $reason);
     }
 
-    public function purgeCache($url = NULL, $tag = NULL, $purgeType = PurgeType::COMPLETE, $reason = NULL) {
+    /**
+     * @param string|null $url
+     * @param string|null $tag
+     * @param int $purgeType
+     * @param string|null $reason
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    public function purgeCache(?string $url = NULL, ?string $tag = NULL, int $purgeType = PurgeType::COMPLETE, ?string $reason = NULL): bool
+    {
         @set_time_limit(0);
         $this->lockPageCache(); // Set the page cache lock, expires after self::PAGECACHE_LOCK_EXPIRATION_TIME seconds
 
@@ -349,7 +484,14 @@ class NitroPack {
         return $apiResult && $localResult;
     }
 
-    public function purgeLocalCache($quick = false) {
+    /**
+     * @param bool $quick
+     *
+     * @return string
+     * @throws \Exception
+     */
+    public function purgeLocalCache(bool $quick = false): string
+    {
         $staleCacheDir = $this->getCacheDir() . '.stale.' . md5(microtime(true));
         $this->purgeProxyCache();
         $this->config->LastFetch = 0;
@@ -373,7 +515,12 @@ class NitroPack {
         return $staleCacheDir;
     }
 
-    public function fetchConfig() {
+    /**
+     * @return bool
+     * @throws \Exception
+     */
+    public function fetchConfig(): bool
+    {
         $fetcher = new Api\RemoteConfigFetcher($this->siteId, $this->siteSecret);
         $configContents = $fetcher->get(); // this can throw in case of http errors or validation failures
         $config = json_decode($configContents);
@@ -388,7 +535,13 @@ class NitroPack {
         }
     }
 
-    public function setConfig($config) {
+    /**
+     * @param array $config
+     *
+     * @return bool
+     */
+    public function setConfig(array $config): bool
+    {
         $file = $this->getConfigFile();
         if (Filesystem::createDir(dirname($file))) {
             if (Filesystem::filePutContents($file, json_encode($config))) {
@@ -401,7 +554,11 @@ class NitroPack {
         }
     }
 
-    public function purgeProxyCache($url = NULL) {
+    /**
+     * @param string|null $url
+     */
+    public function purgeProxyCache(?string $url = NULL): void
+    {
         if (!empty($this->config->CacheIntegrations)) {
             if (!empty($this->config->CacheIntegrations->Varnish)) {
                 if ($url) {
@@ -428,7 +585,12 @@ class NitroPack {
         }
     }
 
-    public function isAllowedUrl($url) {
+    /**
+     * @param string $url
+     *
+     * @return bool
+     */
+    public function isAllowedUrl(string $url): bool {
         if (strpos($url, 'sucurianticache=') !== false) return false;
 
         if ($this->config->EnabledURLs->Status) {
@@ -458,7 +620,13 @@ class NitroPack {
         return true;
     }
 
-    public function isAllowedRequest($allowServiceRequests = false) {
+    /**
+     * @param bool $allowServiceRequests
+     *
+     * @return bool
+     */
+    public function isAllowedRequest(bool $allowServiceRequests = false): bool
+    {
         if (($this->isAJAXRequest() && !$this->isAllowedAJAX()) || !($this->isRequestMethod("GET") || $this->isRequestMethod("HEAD"))) {// TODO: Allow URLs which match a pattern in the AJAX URL whitelist
             return false; // don't cache ajax or not GET requests
         }
@@ -496,7 +664,11 @@ class NitroPack {
         return true;
     }
 
-    public function isAllowedBrowser() {
+    /**
+     * @return bool
+     */
+    public function isAllowedBrowser(): bool
+    {
         if (empty($_SERVER["HTTP_USER_AGENT"])) return true;
 
         if (preg_match("~MSIE|Internet Explorer~i", $_SERVER["HTTP_USER_AGENT"]) || strpos($_SERVER["HTTP_USER_AGENT"], "Trident/7.0; rv:11.0") !== false) { // Skip IE
@@ -506,32 +678,60 @@ class NitroPack {
         return true;
     }
 
-    public function getScheme() {
+    /**
+     * @return string
+     */
+    public function getScheme(): string
+    {
         return $this->isSecure() ? 'https://' : 'http://';
     }
 
-    public function isSecure() {
+    /**
+     * @return bool
+     */
+    public function isSecure(): bool
+    {
         return (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && in_array("https", array_map("strtolower", array_map("trim", explode(",", $_SERVER['HTTP_X_FORWARDED_PROTO']))))) ||
             (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
             (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) ||
             (!empty($_SERVER['HTTP_SSL_FLAG']) && $_SERVER['HTTP_SSL_FLAG'] == 'SSL');
     }
 
-    public function isAJAXRequest() {
+    /**
+     * @return bool
+     */
+    public function isAJAXRequest(): bool
+    {
         return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
 
-    public function isRequestMethod($method) {
+    /**
+     * @param string $method
+     *
+     * @return bool
+     */
+    public function isRequestMethod(string $method): bool
+    {
         return empty($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] == $method;
     }
 
-    public function isAllowedAJAX() {
+    /**
+     * @return bool
+     */
+    public function isAllowedAJAX(): bool
+    {
         if (!$this->pageCache->getParent()) return false;
         if (!$this->pageCache->getParent()->hasCache() || $this->pageCache->getParent()->hasExpired($this->config->PageCache->ExpireTime)) return false;
         return true;
     }
 
-    public function isAllowedAJAXUrl($url) {
+    /**
+     * @param string $url
+     *
+     * @return bool
+     */
+    public function isAllowedAJAXUrl(string $url): bool
+    {
         if ($this->config->AjaxURLs->Status) {
             if (!empty($this->config->AjaxURLs->URLs)) {
                 foreach ($this->config->AjaxURLs->URLs as $ajaxUrl) {
@@ -546,11 +746,21 @@ class NitroPack {
         return false;
     }
 
-    public function isCacheAllowed() {
+    /**
+     * @return bool
+     */
+    public function isCacheAllowed(): bool
+    {
         return $this->isAllowedRequest() && $this->isAllowedUrl($this->url);
     }
 
-    public function purgeLocalUrlCache($url) {
+    /**
+     * @param string $url
+     *
+     * @return string
+     */
+    public function purgeLocalUrlCache(string $url): string
+    {
         $this->purgeProxyCache($url);
         $localResult = true;
         $cacheDir = $this->getCacheDir();
@@ -564,7 +774,13 @@ class NitroPack {
         return $localResult;
     }
 
-    public function invalidateLocalUrlCache($url) {
+    /**
+     * @param string $url
+     *
+     * @return string
+     */
+    public function invalidateLocalUrlCache(string $url): string
+    {
         $this->purgeProxyCache($url);
         $localResult = true;
         $cacheDir = $this->getCacheDir();
@@ -578,7 +794,11 @@ class NitroPack {
         return $localResult;
     }
 
-    public function invalidateLocalCache() {
+    /**
+     * @return bool
+     */
+    public function invalidateLocalCache(): bool
+    {
         $this->purgeProxyCache();
         $this->config->LastFetch = 0;
         $this->setConfig($this->config);
@@ -596,7 +816,12 @@ class NitroPack {
         return true;
     }
 
-    private function invalidateDir($urlDir, $urlDirInvalid) {
+    /**
+     * @param string $urlDir
+     * @param string $urlDirInvalid
+     */
+    private function invalidateDir(string $urlDir, string $urlDirInvalid): void
+    {
         if (Filesystem::fileExists($urlDirInvalid)) {
             Filesystem::dirForeach($urlDir, function($file) use ($urlDirInvalid) {
                 Filesystem::rename($file, $urlDirInvalid . "/" . basename($file));
@@ -609,19 +834,32 @@ class NitroPack {
         Filesystem::touch($urlDirInvalid);
     }
 
-    public function integrationUrl($widget, $version = null) {
+    /**
+     * @param string $widget
+     * @param string|null $version
+     *
+     * @return string
+     */
+    public function integrationUrl(string $widget, ?string $version = null): string
+    {
         $integration = new IntegrationUrl($widget, $this->siteId, $this->siteSecret, $version);
 
         return $integration->getUrl();
     }
 
-    public function embedJsUrl() {
-        $embedjs = new Url\Embedjs();
-
-        return $embedjs->getUrl();
+    /**
+     * @return string
+     */
+    public function embedJsUrl(): string
+    {
+        return (new Url\Embedjs())->getUrl();
     }
 
-    private function loadConfig() {
+    /**
+     * @throws \NitroPack\Exceptions\NoConfigException
+     */
+    private function loadConfig(): void
+    {
         $file = $this->getConfigFile();
 
         $config = array();
@@ -640,7 +878,11 @@ class NitroPack {
         }
     }
 
-    private function getConfigFile() {
+    /**
+     * @return string
+     */
+    private function getConfigFile(): string
+    {
         $configFile = $this->configFile;
 
         $filename = array_pop($configFile);
@@ -653,7 +895,11 @@ class NitroPack {
         return Filesystem::getOsPath($configFile);
     }
 
-    private function lockPageCache() {
+    /**
+     * @return bool
+     */
+    private function lockPageCache(): bool
+    {
         $filename = $this->getPageCacheLockFilename();
 
         if (Filesystem::fileExists($filename)) {
@@ -665,7 +911,10 @@ class NitroPack {
         return !!Filesystem::filePutContents($filename, $sem);
     }
 
-    private function unlockPageCache() {
+    /**
+     * @return bool
+     */
+    private function unlockPageCache(): bool {
         $filename = $this->getPageCacheLockFilename();
 
         if (Filesystem::fileExists($filename)) {
@@ -683,7 +932,10 @@ class NitroPack {
         return false;
     }
 
-    private function isPageCacheLocked() {
+    /**
+     * @return bool
+     */
+    private function isPageCacheLocked(): bool {
         $filename = $this->getPageCacheLockFilename();
 
         if (!Filesystem::fileExists($filename)) {
@@ -702,7 +954,11 @@ class NitroPack {
         return false;
     }
 
-    private function getPageCacheLockFilename() {
+    /**
+     * @return string
+     */
+    private function getPageCacheLockFilename(): string
+    {
         $pageCacheLockFile = $this->pageCacheLockFile;
         array_unshift($pageCacheLockFile, $this->dataDir);
         return Filesystem::getOsPath($pageCacheLockFile);

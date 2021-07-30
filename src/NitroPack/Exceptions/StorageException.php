@@ -1,5 +1,5 @@
 <?php
 
-namespace NitroPack;
+namespace NitroPack\Exceptions;
 
 class StorageException extends \RuntimeException {}
