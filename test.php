@@ -7,4 +7,4 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 $nitro = new NitroPack('site_id', 'secret');
 
-$nitro->purgeCache('https://trippsremovals.co.uk/', null, PurgeType::COMPLETE, 'TEST');
+$nitro->purgeCache('https://example.com/', null, PurgeType::COMPLETE, 'TEST');
